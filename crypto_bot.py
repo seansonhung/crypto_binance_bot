@@ -3,6 +3,10 @@ from binance.enums import *
 from binance.exceptions import BinanceAPIException
 from time import sleep
 
+def decimal_formatter(number):
+    #change float number to string format and get rid of scientific notation
+    return format(number, '.8f')
+
 def get_closing_price(client, sym_pair):
     # fetch 1 minute klines for the last day up until now
     klines = client.get_historical_klines(sym_pair, Client.KLINE_INTERVAL_1MINUTE, "1 min ago")
@@ -11,7 +15,7 @@ def get_closing_price(client, sym_pair):
     return last_closing_price
 
 def target_profit(history_file):
-    # 0.1 % increased in amount of coin after 2 transactions, before fees
+    # 1 % increased in amount of coin after 2 transactions, before fees
     # inital balance is from historical data, 1 transaction ago.
     percent_profit = 0.01
     f= open(history_file)
@@ -31,7 +35,7 @@ def target_price_met(asset_sym, asset_balance, target_balance, last_closing_pric
     else:
         target_price = target_balance/asset_balance
         price_met = (last_closing_price >= target_price)	
-    print("target_price {}, closing price {} for {}".format(target_price, last_closing_price, pair_sym))
+    print("target_price {}, closing price {} for {}".format(decimal_formatter(target_price), decimal_formatter(last_closing_price), pair_sym))
     return price_met
         
 def edit_history(history_file, balance, sym):
@@ -45,13 +49,13 @@ def edit_history(history_file, balance, sym):
         f.close()
         print("successful trade, {} {} is the new balance.".format(balance, sym))
         
-def buy_sell_order(client, sell, asset_sym, buy_sell_quantity, last_closing_price, pair_sym, rounding):
+def buy_sell_order(client, sell, asset_sym, buy_sell_quantity, last_closing_price, pair_sym):
     #sell order if true
     if (sell):
-        client.order_limit_sell(symbol= pair_sym, timeInForce = "GTC", quantity=buy_sell_quantity, price=str(last_closing_price))
+        client.order_limit_sell(symbol= pair_sym, timeInForce = "GTC", quantity=buy_sell_quantity, price=decimal_formatter(last_closing_price))
     #buy order if false
     else:
-        client.order_limit_buy(symbol= pair_sym, timeInForce = "GTC", quantity=buy_sell_quantity, price=str(last_closing_price))
+        client.order_limit_buy(symbol= pair_sym, timeInForce = "GTC", quantity=buy_sell_quantity, price=decimal_formatter(last_closing_price))
     print("order is place.")
         
 def confirm_order(client, pair_sym):
@@ -74,13 +78,14 @@ def get_syms_and_balance(history_file):
     return(asset_sym, target_sym, asset_balance, target_balance)
     
 def ETHBTC_bot(client):
+    pair_sym = "ETHBTC"
     # get balance and target
     (asset_sym, target_sym, asset_balance, target_balance) = get_syms_and_balance("ETHBTC_HISTORY.txt")
     
     try:
-        last_closing_price = get_closing_price(client, "ETHBTC")
+        last_closing_price = get_closing_price(client, pair_sym)
 	# check buy/sell condition
-        trade_condition_sastified = target_price_met(asset_sym, asset_balance, target_balance, last_closing_price, "ETHBTC")
+        trade_condition_sastified = target_price_met(asset_sym, asset_balance, target_balance, last_closing_price, pair_sym)
         if (trade_condition_sastified):
             print("trading price met")
 	    # get the quantity to sell or buy
@@ -91,8 +96,8 @@ def ETHBTC_bot(client):
                 buy_sell_quantity = round(float(asset_balance) - 0.001, 3) # rounding according to lotz size
             else:
                 buy_sell_quantity = round(float(target_balance) - 0.001, 3)
-            buy_sell_order(client, asset_sym, buy_sell_quantity, last_closing_price, "ETHBTC")
-            confirm_order(client)
+            buy_sell_order(client, sell, asset_sym, buy_sell_quantity, last_closing_price, pair_sym)
+            confirm_order(client, pair_sym)
             sleep(5)
             #edit history
             new_balance = float(client.get_asset_balance(asset = target_sym)['free'])
@@ -103,12 +108,13 @@ def ETHBTC_bot(client):
         print(e.message)	    
 	    
 def XRPBTC_bot(client):
+    pair_sym = "XRPBTC"
     # get balance and target
     (asset_sym, target_sym, asset_balance, target_balance) = get_syms_and_balance("XRPBTC_HISTORY.txt")
     try:
-        last_closing_price = get_closing_price(client, "XRPBTC")
+        last_closing_price = get_closing_price(client, pair_sym)
 	# check buy/sell condition
-        trade_condition_sastified = target_price_met(asset_sym, asset_balance, target_balance, last_closing_price, "XRPBTC")
+        trade_condition_sastified = target_price_met(asset_sym, asset_balance, target_balance, last_closing_price, pair_sym)
         if (trade_condition_sastified):
             print("trading price met")
 	    # get the quantity to sell or buy
@@ -119,8 +125,8 @@ def XRPBTC_bot(client):
                 buy_sell_quantity = int(asset_balance)# rounding according to lotz size
             else:
                 buy_sell_quantity = int(target_balance)
-            #buy_sell_order(client, asset_sym, buy_sell_quantity, last_closing_price, "XRPBTC")
-            #confirm_order(client)
+            buy_sell_order(client, sell, asset_sym, buy_sell_quantity, last_closing_price, pair_sym)
+            confirm_order(client, pair_sym)
             sleep(5)
             #edit history
             new_balance = float(client.get_asset_balance(asset = target_sym)['free'])
@@ -141,7 +147,7 @@ def main():
     while True:
         ETHBTC_bot(client)
         XRPBTC_bot(client)
-        # check price every 10s
-        sleep(10)	    
+        # check price every 100s
+        sleep(100)	    
 
 if  __name__ =='__main__':main()
