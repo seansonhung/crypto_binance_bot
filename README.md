@@ -19,3 +19,5 @@ for python 3.x run the command `pip3 install python-binance`
 run the python file:
 for python 2.x run the command `python crypto_bot.py`
 for python 3.x run the command `python crypto_bot.py`
+
+follow the steps in the terminal for required inputs. 
