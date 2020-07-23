@@ -117,10 +117,13 @@ def get_balance(currency):
   }
   response = requests.post("https://api.crypto.com/v2/private/get-account-summary", json=getSign(request))
   data = response.json()
-  return (data["result"]["accounts"][0]["available"])
-
+  # round to 4 decimal places
+  return (float("{:.4f}".format(data["result"]["accounts"][0]["available"])))
 
 def open_order():
+  """
+  find whether or not there is an open order
+  """
   request = {
     "id": 12,
     "api_key": API_KEY,
@@ -136,24 +139,91 @@ def open_order():
   data = response.json()
   return data["result"]["count"] != 0
 
+def cancel_order():
+  """
+  cancel all open orders
+  """
+  request = {
+    "id": 12,
+    "api_key": API_KEY,
+    "method": "private/cancel-all-orders",
+    "params": {
+         "instrument_name": "CRO_USDT"
+    },
+    "nonce": int(time.time() * 1000)
+  }
+  response = requests.post("https://api.crypto.com/v2/private/cancel-all-orders", json=getSign(request))
+  data = response.json()
+  return (data["code"] == 0)
+
+def transactionAlgo(transactions_number):
+  """
+  used to quickly satisfy the transaction requirement in API contest
+  only 1 cro for each transaction make the fee neglegible.
+
+  params: transactions_number: integer representing the number of unique transaction
+  """
+  count = 0
+  while count < transactions_number:
+    (people_buy_price, people_sell_price) = getPrice("CRO_USDT")
+    if (get_balance("CRO") >= 1):
+      create_sell_order("CRO_USDT", people_buy_price, 1)
+      count += 1
+      print(str(count) + "trades")
+    elif (get_balance("USDT") >= 0.2):
+      create_buy_order("CRO_USDT", people_sell_price, 1)
+      count += 1
+      print(str(count) + "trades")
+    # make a trade every second
+    sleep(1)
+
+def volumnAlgo(transactions_number):
+  """
+  used to satisfy the volumn requirement in API contest.
+  make limit order a bit higher/lower than market price to try and offset
+  the opportunity risk and fees.
+
+  params: transactions_number: integer representing the number of unique transaction
+                  that is needed to sastify the volume
+
+  """
+  count = 0
+
+  while count < transactions_number:
+    # if order have not fill after 15 minutes, find the new price
+    # and cancel old order because price might've shifted
+    cancel_order()
+    (people_buy_price, people_sell_price) = getPrice("CRO_USDT")
+    #wierd bug where adding then subtracting float mess up precision
+    people_buy_price = float("{:.4f}".format(people_buy_price + 0.0002))
+    people_sell_price = float("{:.4f}".format(people_sell_price - 0.0002))
+    time_end = time.time() + 60 * 15
+
+    while time.time() < time_end:
+      # wait until order is filled
+      if(not open_order()):
+        cro_balance = get_balance("CRO") - 0.0001
+        usdt_balance = get_balance("CRO") - 0.0001
+        if (cro_balance >= 1000):
+          create_sell_order("CRO_USDT", people_buy_price, cro_balance)
+          count += 1
+          print(str(count) + "trades")
+          #reset timer
+          time_end = time.time() + 60 * 15
+        elif (usdt_balance >= 100):
+          cro_amount = float("{:.4f}".format(usdt_balance/people_sell_price)) - 0.0001
+          create_buy_order("CRO_USDT", people_sell_price, cro_amount)
+          count += 1
+          print(str(count) + "trades")
+          #reset timer
+          time_end = time.time() + 60 * 15
+    #check every 2s
+    sleep(2)
+
+
 def main():
-  # # used to quickly satisfy the 1000 trade requirement in API contest
-  # # only 1 cro for each transaction make the fee neglegible.
-  # count = 0
-  # while count < 1000:
-  #   (people_buy_price, people_sell_price) = getPrice("CRO_USDT")
-  #   if (get_balance("CRO") >= 1):
-  #     create_sell_order("CRO_USDT", people_buy_price, 1)
-  #     count += 1
-  #     print(str(count) + "trades")
-  #   elif (get_balance("USDT") >= 0.2):
-  #     create_buy_order("CRO_USDT", people_sell_price, 1)
-  #     count += 1
-  #     print(str(count) + "trades")
-  #   sleep(1)
-  print(open_order())
-      
+  #transactionAlgo(1000)
 
-
-
+  #100 transaction for $100 000 volumn if used $1000 per trade
+  #volumnAlgo(100)
 if  __name__ =='__main__':main()
