@@ -24,7 +24,7 @@ follow the steps in the terminal for required inputs.
 
 
 # crypto.com_api_trading_bot
-A bot used to enter crypto.com api trading events (v2).
+A bot used to enter crypto.com api trading events (v2). Achieved top 100 in event.
 
 There are two methods used to satisfy the minimum requirements.
 1) Trade 1 CRO back and forth to get the 1000 unique transaction requirement. The fee is very low due to the small transaction.
